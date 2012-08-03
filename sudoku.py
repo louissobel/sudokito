@@ -42,38 +42,43 @@ board = [0, 0, 3,  0, 2, 0,  6, 0, 0,
          0, 0, 2,  6, 0, 9,  5, 0, 0,
          8, 0, 0,  2, 0, 3,  0, 0, 9,
          0, 0, 5,  0, 1, 0,  3, 0, 0,]
-'''
-0 --> 0,1,2  9,10,11  18,19,20
-1 --> 3,4,5  12,13,14 21,22,23
-2 --> 6,7,8  15,16,17 24,25,26 
 
-3 --> 27
-4 --> 30
-'''
-'''
-for r in range(3):
-    for i in range(3):
-        corner = r * 27 + i * 3
-        
-        box = [corner + t * 9 + u for t in range(3) for u in range(3)]
-        
-        print box
-        
-boxes = [ [(r*27+i*3)+t*9+u for t in range(3) for u in range(3)] for i in range(3) for r in range(3) ]
-'''
 
+def is_complete(section):
+    """
+    checks that every section is 9 long and
+    that every number appears
+    """
+    if not len(section) == 9:
+        return False
+    
+    for i in range(1, 10):
+        if not i in section:
+            return False
+    
+    return True
+    
 def confirm(board):
-    pass
-
+    """
+    Confirms that a board is a winner
+    by checking every row, col, and box
+    """
+    for section_type in (row, col, box):
+        section_indicies_gen = dex_gen(section_type)
+        for section_indicies in section_indicies_gen:
+            section = [board[i] for i in section_indicies]
+            if not is_complete(section):
+                print "Invalid:", section
+                return False
+    return True
 
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
-
-        
-
     
     solved = solve(board)
+    if not confirm(solved):
+        print "INVALID!!!!!"
     
     for row in [[solved[i] for i in d] for d in dex_gen(row)]:
         print row
