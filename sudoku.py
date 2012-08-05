@@ -12,13 +12,13 @@ def small_solver(board):
     rows = lambda s : [i for i in range(s*9, (s+1)*9)]
     cols = lambda s : [i for i in range(s, 81, 9)]
     boxs = lambda s : [(s//3)*27+(s%3)*3 + (i//3)*9+(i%3) for i in range(9)]
-    is_legal = lambda ns : all(len([s for s in ns if s==v]) <= 1 for v in range(1, 10))
-    find = lambda b, s, i : [[b[j] for j in ni] for ni in (s(b) for b in range(9)) if i in ni][0]
+    is_legal = lambda ns, v : True if v==10 else False if len([s for s in ns if s==v]) > 1 else is_legal(ns, v+1)
+    find = lambda b, sg, i, ni : [b[j] for j in ni] if i in ni else find(b, sg, i, sg.next())
     make_move = lambda b, i, m : [m if j == i else b[j] for j in range(81)]
-    legal_moves = lambda b, i : [m for m in range(1, 10) if all([is_legal(find(make_move(b, i, m), s, i)) for s in (rows, cols, boxs)])]
+    legal_moves = lambda b, i : [m for m in range(1, 10) if all([is_legal(find(make_move(b, i, m), (s(si) for si in range(9)), i, []), 1) for s in (rows, cols, boxs)])]
     square_moves = lambda b : min(((i, legal_moves(b, i)) for i in range(81) if not b[i]),key=lambda x : len(x[1]))
-    solve_helper = lambda g, l, t, m : l if l else None if t == m else solve_helper(g, g.next(), t + 1, m)
-    solve = lambda b : b if all(b) else (lambda i, ms : None if not ms else solve_helper((solve(make_move(b, i, m)) for i, m in [(i, m) for m in ms]), None, 0, len(ms)))(*square_moves(b))
+    solve_helper = lambda g, l, t : l if l else None if t == 0 else solve_helper(g, g.next(), t - 1)
+    solve = lambda b : b if all(b) else (lambda i, ms : None if not ms else solve_helper((solve(make_move(b, i, m)) for i, m in [(i, m) for m in ms]), None, len(ms)))(*square_moves(b))
     # ----------------------------------------------------------------------------------------------
     return solve(board)
 
@@ -54,40 +54,49 @@ def unrolled(board):
         Returns the nine indicies of the bth box
         """
         out = []
-        for col in range(3):
-            for row in range(3):
-                corner = (section_index // 3) * 27 + (section_index % 3 ) * 3
-                i = corner + row * 9 + col
-                out.append(i)
+        for s in range(9):
+            corner = (section_index // 3) * 27 + (section_index % 3 ) * 3
+            i = corner + (s // 3) * 9 + (s % 3)
+            out.append(i)
         return out
         
-    def is_legal(nine_squares):
+    def is_legal(nine_squares, value):
         """
-        Checks if the nine given squares are in a legal state:
-        each number appears once or zero times
+        Checks if the nine_squares are in a legal
+        state using a recursive search on value.
+        
+        Value is the number to check that it appears
+        once or zero times. If this function is called 
+        initially with value 1, will check all values.
         """
-        for v in range(1, 10):
-            count = 0
-            for square in nine_squares:
-                if square == v:
-                    count += 1
-            if not count <= 1:
-                return False
-        return True
+        if value == 10:
+            return True
+        
+        count = 0
+        for square in nine_squares:
+            if square == value:
+                count += 1
+        if count > 1:
+            return False
+            
+        return is_legal(nine_squares, value + 1)
         
         
-    def find(board, section, index):
+    def find(board, section_generator, index, nine_indicies):
         """
         Gets the values of the section whose generating function
         is specified by which and contains the index index
+        
+        Recursively searches for it using the generator
+        (this is so the search only descends as deep as necessary)
         """
-        for i in range(9):
-            section_indicies = section(i)
-            if index in section_indicies:
-                out = []
-                for i in section_indicies:
-                    out.append(board[i])
-                return out
+        if index in nine_indicies:
+            out = []
+            for i in nine_indicies:
+                out.append(board[i])
+            return out
+        
+        return find(board, section_generator, index, section_generator.next())
         
     def make_move(board, index, move):
         """
@@ -108,13 +117,17 @@ def unrolled(board):
         Given a board and an index, will return the list
         of all legal moves at that index
         """
+        def section_generator(section):
+            for i in range(9):
+                yield section(i)        
+        
         out = []
         for move in range(1, 10):
             legal = True
             new_board = make_move(board, index, move)
-            for section_type in (rows, cols, boxs):
-                new_section = find(new_board, section_type, index)
-                new_section_is_legal = is_legal(new_section)
+            for section in (rows, cols, boxs):
+                new_section = find(new_board, section_generator(section), index, [])
+                new_section_is_legal = is_legal(new_section, 1)
                 legal = legal * new_section_is_legal
             
             if legal:
