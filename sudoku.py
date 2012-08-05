@@ -15,6 +15,14 @@ False
 [4, 5]
 
 """
+import pprint
+
+def print_board(board):
+    for i in range(81):
+        print board[i],
+        if  i % 9 == 8:
+            print
+
 # ----------------------------------------------------------------------------------------------
 row = lambda b : [i for i in range(b*9,(b+1)*9)]
 col = lambda b : [i for i in range(b,81,9)]
@@ -24,26 +32,46 @@ dex_gen = lambda section_func : (section_func(b) for b in range(9))
 find = lambda board, which, index : [[board[i] for i in nine_index] for nine_index in dex_gen(which) if index in nine_index][0]
 make_move = lambda board, index, move : [move if i == index else board[i] for i in range(81)]
 legal_moves = lambda board, index : [v for v in range(1,10) if all([is_legal(find(make_move(board, index, v), sec, index)) for sec in (row,col,box)])]
-square_moves = lambda board : (sort_tuple[1] for sort_tuple in sorted([(len(t[1]),t) for t in ( (i, legal_moves(board, i)) for i in range(81) if board[i] == 0)]))
-def solve(board):
-    if all(board): return board #win
-    for index, move in reduce(lambda a,b : a + b, [[(index, move) for move in moves] for index, moves in square_moves(board)],[]):
-        solved = solve(make_move(board, index, move))
-        if solved is not None: return solved
+square_moves = lambda board : [min(((i, legal_moves(board, i)) for i in range(81) if board[i] == 0),key=lambda x : len(x[1]))]
+solve_helper = lambda gen, last, tries, max : last if last else None if tries == max else solve_helper(gen, gen.next(), tries + 1, max)
+solve = lambda board : board if all(board) else [solve_helper( ( solve(make_move(board, index, move)) for index, move in [(index, move) for move in moves] ), None, 0, len(moves)) for index, moves in square_moves(board)][0]
+
+#def solve(board):
+#    if all(board): return board #win   
+#    for index, move in [[(index, move) for move in moves] for index, moves in square_moves(board)][0]:
+#        solved = solve(make_move(board, index, move))
+#        if solved is not None: return solved
 # ----------------------------------------------------------------------------------------------
     
-board = [0, 0, 3,  0, 2, 0,  6, 0, 0,
-         9, 0, 0,  3, 0, 5,  0, 0, 1,
-         0, 0, 1,  8, 0, 6,  4, 0, 0,
+board = [
+    0, 0, 3,  0, 2, 0,  6, 0, 0,
+    9, 0, 0,  3, 0, 5,  0, 0, 1,
+    0, 0, 1,  8, 0, 6,  4, 0, 0,
              
-         0, 0, 8,  1, 0, 2,  9, 0, 0,
-         7, 0, 0,  0, 0, 0,  0, 0, 8,
-         0, 0, 6,  7, 0, 8,  2, 0, 0,
-             
-         0, 0, 2,  6, 0, 9,  5, 0, 0,
-         8, 0, 0,  2, 0, 3,  0, 0, 9,
-         0, 0, 5,  0, 1, 0,  3, 0, 0,]
+    0, 0, 8,  1, 0, 2,  9, 0, 0,
+    7, 0, 0,  0, 0, 0,  0, 0, 8,
+    0, 0, 6,  7, 0, 8,  2, 0, 0,
+     
+    0, 0, 2,  6, 0, 9,  5, 0, 0,
+    8, 0, 0,  2, 0, 3,  0, 0, 9,
+    0, 0, 5,  0, 1, 0,  3, 0, 0,
+]
+         
+hard_board = [
+    9, 0, 0,  0, 0, 3,  0, 0, 7,
+    8, 0, 0,  0, 0, 0,  0, 0, 1,
+    0, 0, 3,  2, 0, 0,  8, 6, 4,
+    
+    0, 6, 0,  0, 2, 7,  0, 0, 0,
+    0, 8, 1,  0, 0, 4,  0, 0, 0,
+    0, 0, 0,  0, 3, 0,  0, 0, 0,
+    
+    0, 0, 0,  0, 0, 9,  3, 5, 2,
+    0, 0, 0,  0, 0, 5,  0, 0, 0,
+    1, 0, 0,  0, 0, 0,  4, 7, 0,
+]
 
+TEST_BOARD = hard_board
 
 def is_complete(section):
     """
@@ -77,6 +105,7 @@ def unrolled():
     """
     namespace the expanded functions
     """
+    # ----------------------------------------------------------------------------------------------
     def row(b):
         """
         Returns the nine indicies of the bth row
@@ -184,42 +213,35 @@ def unrolled():
     
     def square_moves(board):
         """
-        Given a board, returns a list of tuples
-        The first value is an index, the second value
+        Given a board, returns the empty index with
+        the least amount of legal moves and the list
+        of those moves as a tuple.
+        
+        The tuple is returned inside of a list
+        so it can be used in later list comprehensions
+        
+        The first value is the index, the second value
         is the list of legal moves for that index.
-        
-        It will only have a tuple for an index if the
-        square at that index is currently empty.
-        
-        To optimize the sudoku search, the list is sorted
-        (increasing) by the number of legal moves.
         """
-        unsorted_legal_list = []
+        legal_list = []
         for i in range(81):
             if board[i] == 0:
                 legal_move_list = legal_moves(board, i)
-                index_legal_move_list = (i, legal_move_list)
-                unsorted_legal_list.append(index_legal_move_list)
+                index_move_list = (i, legal_move_list)
+                legal_list.append(index_move_list)
         
-        # to sort it, we transform it to another tuple with
-        # the length of the legal list as the first element
-        # and the tuple as the second element
-        legal_list_for_sorting = []
-        for index_legal_move_list in unsorted_legal_list:
-            index, legal_move_list = index_legal_move_list
-            legal_move_count = len(legal_move_list)
-            sort_tuple = (legal_move_count, index_legal_move_list)
-            legal_list_for_sorting.append(sort_tuple)
+        # and now find the one with the smallest list length
+        best = None
+        for index_move_list in legal_list:
+            if best is None:
+                best = index_move_list
+            else:
+                index, move_list = index_move_list
+                best_index, best_move_list = best
+                if len(move_list) < len(best_move_list):
+                    best = index_move_list
         
-        # the sort
-        legal_list_for_sorting.sort()
-        
-        # then we go back through and pull out just the second element
-        # of the tuples we made for sorting
-        out = []
-        for legal_move_count, index_legal_move_list in legal_list_for_sorting:
-            out.append(index_legal_move_list)
-        return out
+        return [best]
         
     def solve(board):
         """
@@ -240,35 +262,21 @@ def unrolled():
             # win.
             return board
 
-        for index, moves in square_moves(board):
-            if not moves:
-                return None
-            
-            for move in moves:
-                new_board = make_move(board, index, move)
-                solved = solve(new_board)
-                if solved is not None:
-                    return solved
+        index, moves = square_moves(board)[0]
+        if not moves:
+            return None
+                    
+        for move in moves:
+            new_board = make_move(board, index, move)
+            solved = solve(new_board)
+            if solved is not None:
+                return solved
+                
         return None
-        
-    def confirm(board):
-        """
-        Confirms that a board is a winner
-        by checking every row, col, and box
-        """
-        for section_type in (row, col, box):
-            section_indicies_gen = dex_gen(section_type)
-            for section_indicies in section_indicies_gen:
-                section = [board[i] for i in section_indicies]
-                if not is_complete(section):
-                    print "Invalid:", section
-                    return False
-        return True
     
-    solved = solve(board)
-    if not confirm(solved):
-        print "INVALID!!!!!"
-
+    # ----------------------------------------------------------------------------------------------
+    solved = solve(TEST_BOARD)
+    
     for row in [[solved[i] for i in d] for d in dex_gen(row)]:
         print row
         
@@ -277,12 +285,14 @@ if __name__ == "__main__":
     import doctest
     doctest.testmod()
 
-    solved = solve(board)
+    '''
+    solved = solve(TEST_BOARD)
     if not confirm(solved):
         print "INVALID!!!!!"
 
     for row in [[solved[i] for i in d] for d in dex_gen(row)]:
         print row
+    '''
 
-    # unrolled()
+    unrolled()
     
